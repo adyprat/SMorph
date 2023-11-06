@@ -3,14 +3,9 @@
 This library automates the morphological analysis of cells and classify
 different subgroups based on the extracted morphometric parameters.
 
-- The notebook [single_cell_analysis.ipynb](./single_cell_analysis.ipynb)
-includes the visual analysis to explore various morphological parameters of a
+- The notebook [single_cell_analysis.ipynb](./single_cell_analysis_mg.ipynb)
+includes the morpholgy analysis to explore various morphological parameters of a
 single cell.
-- And the notebook [group_analysis.ipynb](./group_analysis.ipynb)
-includes the group level analysis of cells of the Nervous System using
-Principal Component Analysis (PCA) which helps to distinguish the differences
-between different classes of cells based on their morphological parameters.
-
 ---
 
 ## Published Version
