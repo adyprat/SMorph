@@ -1,11 +1,12 @@
 import numpy as np
 from scipy.ndimage import generate_binary_structure, label
-from skan import skeleton_to_csgraph
-from skan.csr import Skeleton, branch_statistics
+from skan.csr import skeleton_to_csgraph,make_degree_image
+from skan.csr import Skeleton, summarize
 from skimage.feature import blob_log
 from skimage.morphology import convex_hull_image
 from skimage.util import invert
-
+from skimage.morphology import skeletonize
+import cv2
 
 def _get_blobs(cell_image, image_type):
     """Extracts circular blobs in cell image for finding soma later.
@@ -26,8 +27,9 @@ def _get_blobs(cell_image, image_type):
 
     if image_type == "DAB":
         min_sigma, max_sigma, num_sigma = 6, 20, 10
-        threshold, overlap = 0.1, 0.5
-        image = invert(cell_image)
+        #threshold, overlap = 0.1, 0.5
+        threshold, overlap = 0.0, 0.5
+        image = cell_image# invert(cell_image)
     elif image_type == "confocal":
         min_sigma, max_sigma, num_sigma = 3, 20, 10
         threshold, overlap = 0.1, 0.5
@@ -107,16 +109,19 @@ def _centre_of_mass(blobs, cell_image, image_type):
 def _get_soma(cell_image, image_type):
     """Calculate pixel position to be attribute as soma."""
 
-    soma_blobs = _get_blobs(cell_image, image_type)
+    # soma_blobs = _get_blobs(cell_image, image_type)
 
-    if len(soma_blobs) == 0:
-        raise RuntimeError('No soma detected for the cell!')
-    if len(soma_blobs) == 1:
-        soma = soma_blobs[0][:2]
-    if len(soma_blobs) > 1:
-        soma = _centre_of_mass(soma_blobs, cell_image, image_type)
-
-    return soma
+    # if len(soma_blobs) == 0:
+    #     raise RuntimeError('No soma detected for the cell!')
+    # if len(soma_blobs) == 1:
+    #     soma = soma_blobs[0][:2]
+    # if len(soma_blobs) > 1:
+    #     #soma = _centre_of_mass(soma_blobs, cell_image, image_type)
+    #     soma = soma_blobs[np.argmax(soma_blobs[:, 2]),:2]
+    
+    dist_map = cv2.distanceTransform(cell_image.astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+    _,radius, _, center = cv2.minMaxLoc(dist_map)
+    return (center[1], center[0])
 
 
 def get_surface_area(cleaned_image_filled_holes):
@@ -212,7 +217,7 @@ def get_soma_on_skeleton(cell_image, image_type, cell_skeleton):
 
 
 def get_total_length(cell_skeleton):
-    return np.sum(cell_skeleton)
+    return np.sum(cell_skeleton)/255
 
 
 def get_avg_process_thickness(surface_area, total_length):
@@ -220,7 +225,7 @@ def get_avg_process_thickness(surface_area, total_length):
 
 
 def get_convex_hull(cell):
-    convex_hull = convex_hull_image(cell.skeleton)
+    convex_hull = convex_hull_image(cell.image)
     cell.convex_hull = convex_hull
 
     return np.sum(convex_hull)
@@ -228,16 +233,19 @@ def get_convex_hull(cell):
 
 def get_no_of_forks(cell):
     # get the degree for every cell pixel (no. of neighbouring pixels)
-    degrees = skeleton_to_csgraph(cell.skeleton)[2]
+    
+    #degrees = skeleton_to_csgraph(cell.skeleton)[2]
+    degrees = make_degree_image(cell.skeleton)[0]
     # array of all pixel locations with degree more than 2
     fork_image = np.where(degrees > [2], 1, 0)
     s = generate_binary_structure(2, 2)
-    num_forks = label(fork_image, structure=s)[1]
+    #num_forks = label(degrees>2, structure=s)[1]
+    num_forks = label(make_degree_image(skeletonize(cell.image, method='lee'))>2, structure=s)[1]
 
     # for future plotting
-    fork_indices = np.where(degrees > [2])
+    fork_indices = np.where(make_degree_image(skeletonize(cell.image, method='lee'))>2)
     cell._fork_coords = zip(fork_indices[0], fork_indices[1])
-
+    
     return num_forks
 
 
@@ -310,7 +318,7 @@ def classify_branching_structure(cell_skeleton, soma_on_skeleton):
         return soma_branches
 
     pixel_graph, coords = skeleton_to_csgraph(cell_skeleton)[0:2]
-    branch_stats = branch_statistics(pixel_graph)
+    branch_stats = np.array(summarize(Skeleton(cell_skeleton)))[:,1:]
     paths_list = Skeleton(cell_skeleton).paths_list()
 
     terminal_branches = []
@@ -328,7 +336,7 @@ def classify_branching_structure(cell_skeleton, soma_on_skeleton):
         delete_soma_branch = True
 
     # eliminate loops in branches and path lists
-    branch_stats, paths_list = _eliminate_loops(branch_stats, paths_list)
+    #branch_stats, paths_list = _eliminate_loops(branch_stats, paths_list)
 
     while True:
         junctions, branches, term_branch, branch_stats = _branch_structure(
@@ -339,7 +347,10 @@ def classify_branching_structure(cell_skeleton, soma_on_skeleton):
             break
 
     if delete_soma_branch:
-        branching_structure_array[0].remove(soma_branches[0])
+        try:
+            branching_structure_array[0].remove(soma_branches[0])
+        except:
+            pass
 
     return branching_structure_array, terminal_branches, coords
 
