@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as npr
 from skimage.morphology import skeletonize
 
 from ..analysis.morphometric import (
@@ -17,7 +17,7 @@ from ..analysis.morphometric import (
     get_terminal_branches,
     sholl_analysis
 )
-
+import numpy as np
 
 def _extract_cell_features(cell, shell_step_size, polynomial_degree):
     """Returns all 23 Morphometric features from a cell image.
@@ -41,7 +41,7 @@ def _extract_cell_features(cell, shell_step_size, polynomial_degree):
 
     surface_area = get_surface_area(cleaned_image)
 
-    cell_skeleton = skeletonize(cleaned_image)
+    cell_skeleton = skeletonize(cleaned_image, method='lee')
     cell.skeleton = cell_skeleton
 
     # Skeletal features
@@ -50,67 +50,66 @@ def _extract_cell_features(cell, shell_step_size, polynomial_degree):
         surface_area, total_length)
     convex_hull = get_convex_hull(cell)
     n_forks = get_no_of_forks(cell)
+    try:
 
-    soma_on_skeleton = get_soma_on_skeleton(
-        cell.image, cell.image_type, cell_skeleton)
+        soma_on_skeleton = get_soma_on_skeleton(
+            cell.image, cell.image_type, cell_skeleton)
 
-    (
-        padded_skeleton,
-        pad_sk_soma,
-        bounded_skeleton_boundary,
-        sk_soma
-    ) = pad_skeleton(cell_skeleton, soma_on_skeleton)
+        (
+            padded_skeleton,
+            pad_sk_soma,
+            bounded_skeleton_boundary,
+            sk_soma
+        ) = pad_skeleton(cell_skeleton, soma_on_skeleton)
 
-    (
-        branching_structure,
-        terminal_branches,
-        coords
-    ) = classify_branching_structure(cell_skeleton, soma_on_skeleton)
+        (
+            branching_structure,
+            terminal_branches,
+            coords
+        ) = classify_branching_structure(cell_skeleton, soma_on_skeleton)
 
-    cell._padded_skeleton = padded_skeleton
-    cell._pad_sk_soma = pad_sk_soma
-    cell._branching_struct = branching_structure
-    cell._branch_coords = coords
+        cell._padded_skeleton = padded_skeleton
+        cell._pad_sk_soma = pad_sk_soma
+        cell._branching_struct = branching_structure
+        cell._branch_coords = coords
 
-    (
-        n_primary_branches,
-        avg_length_of_primary_branches
-    ) = get_primary_branches(branching_structure)
-    (
-        n_secondary_branches,
-        avg_length_of_secondary_branches
-    ) = get_secondary_branches(branching_structure)
-    (
-        n_tertiary_branches,
-        avg_length_of_tertiary_branches
-    ) = get_tertiary_branches(branching_structure)
-    (
-        n_quatenary_branches,
-        avg_length_of_quatenary_branches
-    ) = get_quatenary_branches(branching_structure)
-    (
-        n_terminal_branches,
-        avg_length_of_terminal_branches
-    ) = get_terminal_branches(terminal_branches)
+        (
+            n_primary_branches,
+            avg_length_of_primary_branches
+        ) = get_primary_branches(branching_structure)
+        (
+            n_secondary_branches,
+            avg_length_of_secondary_branches
+        ) = get_secondary_branches(branching_structure)
+        (
+            n_tertiary_branches,
+            avg_length_of_tertiary_branches
+        ) = get_tertiary_branches(branching_structure)
+        (
+            n_quatenary_branches,
+            avg_length_of_quatenary_branches
+        ) = get_quatenary_branches(branching_structure)
+        (
+            n_terminal_branches,
+            avg_length_of_terminal_branches
+        ) = get_terminal_branches(terminal_branches)
 
-    skeleton_ht = bounded_skeleton_boundary[3] - bounded_skeleton_boundary[2]
-    skeleton_br = bounded_skeleton_boundary[1] - bounded_skeleton_boundary[0]
+        skeleton_ht = bounded_skeleton_boundary[3] - bounded_skeleton_boundary[2]
+        skeleton_br = bounded_skeleton_boundary[1] - bounded_skeleton_boundary[0]
 
-    largest_radius = np.max([sk_soma[1], abs(sk_soma[1]-skeleton_br),
-                             sk_soma[0], abs(sk_soma[0]-skeleton_ht)])
-    largest_radius = int(1.3 * largest_radius)
+        largest_radius = np.max([sk_soma[1], abs(sk_soma[1]-skeleton_br),
+                                sk_soma[0], abs(sk_soma[0]-skeleton_ht)])
+        largest_radius = int(1.3 * largest_radius)
+        sholl_results = sholl_analysis(shell_step_size, polynomial_degree,
+                                        largest_radius, padded_skeleton,
+                                        pad_sk_soma, n_primary_branches)
 
-    sholl_results = sholl_analysis(shell_step_size, polynomial_degree,
-                                   largest_radius, padded_skeleton,
-                                   pad_sk_soma, n_primary_branches)
-
-    cell._concentric_coords = sholl_results[8]
-    cell._sholl_intersections = sholl_results[9]
-    cell._sholl_polynomial_model = sholl_results[10]
-    cell._non_zero_sholl_intersections = sholl_results[11]
-    cell._polynomial_sholl_radii = sholl_results[12]
-
-    features = {
+        cell._concentric_coords = sholl_results[8]
+        cell._sholl_intersections = sholl_results[9]
+        cell._sholl_polynomial_model = sholl_results[10]
+        cell._non_zero_sholl_intersections = sholl_results[11]
+        cell._polynomial_sholl_radii = sholl_results[12]
+        features = {
         'surface_area': surface_area,
         'total_length': total_length,
         'avg_process_thickness': avg_process_thickness,
@@ -134,6 +133,33 @@ def _extract_cell_features(cell, shell_step_size, polynomial_degree):
         'coefficient_of_determination': sholl_results[5],
         'sholl_regression_coefficient': sholl_results[6],
         'regression_intercept': sholl_results[7]
-    }
+        }
+    except:
+            features = {
+            'surface_area': surface_area,
+            'total_length': total_length,
+            'avg_process_thickness': avg_process_thickness,
+            'convex_hull': convex_hull,
+            'no_of_forks': n_forks,
+            'no_of_primary_branches': 0,
+            'no_of_secondary_branches': 0,
+            'no_of_tertiary_branches': 0,
+            'no_of_quatenary_branches': 0,
+            'no_of_terminal_branches': 0,
+            'avg_length_of_primary_branches': 0,
+            'avg_length_of_secondary_branches': 0,
+            'avg_length_of_tertiary_branches': 0,
+            'avg_length_of_quatenary_branches': 0,
+            'avg_length_of_terminal_branches': 0,
+            'critical_radius': 0,
+            'critical_value': 0,
+            'enclosing_radius': 0,
+            'ramification_index': 0,
+            'skewness': 0,
+            'coefficient_of_determination': 0,
+            'sholl_regression_coefficient': 0,
+            'regression_intercept': 0
+        }
+
 
     return features

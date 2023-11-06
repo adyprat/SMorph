@@ -3,7 +3,7 @@ from itertools import cycle
 from os import getcwd, mkdir, path
 from shutil import rmtree
 
-import ipyvolume as ipv
+#import ipyvolume as ipv
 import matplotlib.pyplot as plt
 import numpy as np
 import tifffile

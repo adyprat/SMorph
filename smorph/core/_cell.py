@@ -80,9 +80,12 @@ class Cell:
                  else rgb2gray(cell_image))
         self.image_type = image_type
         self.sholl_step_size = sholl_step_size
-        self.image, self.cleaned_image = preprocess_image(
-            image, image_type, reference_image, crop_tech,
-            contrast_ptiles, threshold_method)
+        #self.image, self.cleaned_image = preprocess_image(
+        #    image, image_type, reference_image, crop_tech,
+        #    contrast_ptiles, threshold_method)
+        self.image = image
+        self.cleaned_image = image
+        #print("Extracting features...")
         self.features = _extract_cell_features(
             self, sholl_step_size, polynomial_degree)
 
@@ -134,7 +137,7 @@ class Cell:
         if sum(color_validations) != len(color_validations):
             print(f'{colors} is not a valid list of colors. '
                   'Resetting colors to ["r","b","m","g","c"].')
-            colors = ['r', 'b', 'm', 'g', 'c']
+            colors = ['r', 'b', 'm', 'g', 'c','k']
 
         branching_structure = self._branching_struct
         coords = self._branch_coords
@@ -145,8 +148,8 @@ class Cell:
             for path in branch_level:
                 path_coords = []
                 for node in path:
-                    path_coords.append(coords[node])
-                    single_branch_level.extend(path_coords)
+                    path_coords.append([coords[0][node],coords[1][node]])
+                single_branch_level.extend(path_coords)
             color_branches_coords.append(single_branch_level)
 
         ax = plt.subplots(figsize=(4, 4))[1]
